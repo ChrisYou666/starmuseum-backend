@@ -1,32 +1,37 @@
+spring:
+  application:
+    name: starmuseum-backend
+  profiles:
+    active: dev
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: 123456
+      database: 0
+
 server:
   port: 8080
 
-spring:
-  application:
-    name: starmuseum
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/starmuseum?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: ysl666
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-
-mybatis-plus:
-  configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  global-config:
-    db-config:
-      logic-delete-field: isDeleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 springdoc:
-  api-docs:
-    path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
-  default-produces-media-type: application/json
+
+
+starmuseum:
+  security:
+    jwt:
+      issuer: "starmuseum"
+      # ⚠️ 必须改成你自己的长随机串（至少 64 位）
+      secret: "PLEASE_CHANGE_ME_TO_A_LONG_RANDOM_SECRET_64+CHARS"
+      access-token-ttl-minutes: 30
+    refresh:
+      ttl-days: 30
+      # ⚠️ refresh token hash 的 pepper，必须改成随机串
+      pepper: "PLEASE_CHANGE_ME_REFRESH_PEPPER_TOO"
