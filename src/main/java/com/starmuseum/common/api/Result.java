@@ -30,4 +30,15 @@ public class Result<T> {
     public static <T> Result<T> fail(ResultCode code) {
         return fail(code, code.getMessage());
     }
+
+    /**
+     * ✅ 新增：失败时携带 data（例如 errors、invalidTime 等）
+     */
+    public static <T> Result<T> fail(ResultCode code, String message, T data) {
+        return new Result<>(code.getCode(), message, data, Instant.now().toEpochMilli());
+    }
+
+    public static <T> Result<T> fail(ResultCode code, T data) {
+        return fail(code, code.getMessage(), data);
+    }
 }

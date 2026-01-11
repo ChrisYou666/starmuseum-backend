@@ -30,7 +30,7 @@ starmuseum:
       issuer: "starmuseum"
       # ⚠️ 必须改成你自己的长随机串（至少 64 位）
       secret: "PLEASE_CHANGE_ME_TO_A_LONG_RANDOM_SECRET_64+CHARS"
-      access-token-ttl-minutes: 30
+      access-token-ttl-minutes: 300
     refresh:
       ttl-days: 30
       # ⚠️ refresh token hash 的 pepper，必须改成随机串
