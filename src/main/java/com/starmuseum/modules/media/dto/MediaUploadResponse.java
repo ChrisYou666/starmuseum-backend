@@ -19,5 +19,9 @@ public class MediaUploadResponse {
     private Integer width;
     private Integer height;
 
+    private Boolean exifStripped;
+    private Boolean exifHasGps;
+    private Boolean exifHasDevice;
+
     private LocalDateTime createdAt;
 }

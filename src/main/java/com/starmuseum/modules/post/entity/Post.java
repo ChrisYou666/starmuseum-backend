@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -31,8 +32,43 @@ public class Post {
      */
     private String visibility;
 
+    // =========================
+    // 阶段3.1：位置字段（Post 维度）
+    // =========================
+
+    /**
+     * 位置可见性：HIDDEN/CITY/FUZZY/EXACT
+     */
+    private String locationVisibility;
+
+    /**
+     * 精确纬度（仅作者可见）
+     */
+    private BigDecimal locationLat;
+
+    /**
+     * 精确经度（仅作者可见）
+     */
+    private BigDecimal locationLon;
+
+    /**
+     * 城市名（阶段3前端传）
+     */
+    private String locationCity;
+
+    /**
+     * 模糊纬度（对他人展示）
+     */
+    private BigDecimal locationLatFuzzy;
+
+    /**
+     * 模糊经度（对他人展示）
+     */
+    private BigDecimal locationLonFuzzy;
+
     private Integer likeCount;
     private Integer commentCount;
+
 
     /**
      * 软删字段

@@ -1,6 +1,8 @@
 package com.starmuseum.iam.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.starmuseum.common.enums.ExactLocationPublicStrategy;
+import com.starmuseum.common.enums.LocationVisibility;
 import com.starmuseum.iam.dto.UpdateAvatarRequest;
 import com.starmuseum.iam.dto.UpdatePrivacyRequest;
 import com.starmuseum.iam.dto.UpdateProfileRequest;
@@ -10,11 +12,13 @@ import com.starmuseum.iam.mapper.UserMapper;
 import com.starmuseum.iam.mapper.UserPrivacySettingMapper;
 import com.starmuseum.iam.service.MeService;
 import com.starmuseum.iam.vo.MeResponse;
+import com.starmuseum.iam.vo.PrivacySettingResponse;
 import com.starmuseum.modules.media.entity.Media;
 import com.starmuseum.modules.media.enums.MediaBizType;
 import com.starmuseum.modules.media.mapper.MediaMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -69,7 +73,6 @@ public class MeServiceImpl implements MeService {
             throw new IllegalArgumentException("User not found");
         }
 
-        // 只更新基本资料（不校验 media）
         u.setNickname(req.getNickname());
         u.setAvatarUrl(req.getAvatarUrl());
         u.setBio(req.getBio());
@@ -79,26 +82,109 @@ public class MeServiceImpl implements MeService {
 
     @Override
     @Transactional
-    public void updatePrivacy(Long userId, UpdatePrivacyRequest req) {
-        UserPrivacySetting p = privacySettingMapper.selectOne(
-            new LambdaQueryWrapper<UserPrivacySetting>()
-                .eq(UserPrivacySetting::getUserId, userId)
-                .last("LIMIT 1")
-        );
-
+    public PrivacySettingResponse getPrivacy(Long userId) {
+        UserPrivacySetting p = privacySettingMapper.selectById(userId);
         if (p == null) {
-            p = new UserPrivacySetting();
-            p.setUserId(userId);
-            p.setPostVisibilityDefault(req.getPostVisibilityDefault());
-            p.setCreatedAt(LocalDateTime.now());
-            p.setUpdatedAt(LocalDateTime.now());
+            p = buildDefaultPrivacySetting(userId);
             privacySettingMapper.insert(p);
-            return;
+        } else {
+            // 兜底：老数据可能为空（企业升级很常见）
+            boolean changed = false;
+            if (!StringUtils.hasText(p.getPostVisibilityDefault())) {
+                p.setPostVisibilityDefault("PUBLIC");
+                changed = true;
+            }
+            if (!StringUtils.hasText(p.getDefaultLocationVisibility())) {
+                p.setDefaultLocationVisibility(LocationVisibility.HIDDEN.name());
+                changed = true;
+            }
+            if (!StringUtils.hasText(p.getExactLocationPublicStrategy())) {
+                p.setExactLocationPublicStrategy(ExactLocationPublicStrategy.FUZZY.name());
+                changed = true;
+            }
+            if (changed) {
+                p.setUpdatedAt(LocalDateTime.now());
+                privacySettingMapper.updateById(p);
+            }
         }
 
-        p.setPostVisibilityDefault(req.getPostVisibilityDefault());
-        p.setUpdatedAt(LocalDateTime.now());
-        privacySettingMapper.updateById(p);
+        return toResponse(p);
+    }
+
+    @Override
+    @Transactional
+    public PrivacySettingResponse updatePrivacy(Long userId, UpdatePrivacyRequest req) {
+        UserPrivacySetting p = privacySettingMapper.selectById(userId);
+        if (p == null) {
+            p = buildDefaultPrivacySetting(userId);
+            privacySettingMapper.insert(p);
+        }
+
+        boolean changed = false;
+
+        // 1) postVisibilityDefault
+        if (StringUtils.hasText(req.getPostVisibilityDefault())) {
+            String v = req.getPostVisibilityDefault().trim().toUpperCase();
+            if (!("PUBLIC".equals(v) || "PRIVATE".equals(v) || "FOLLOWERS".equals(v))) {
+                throw new IllegalArgumentException("Invalid postVisibilityDefault: " + req.getPostVisibilityDefault());
+            }
+            p.setPostVisibilityDefault(v);
+            changed = true;
+        }
+
+        // 2) defaultLocationVisibility
+        if (StringUtils.hasText(req.getDefaultLocationVisibility())) {
+            String v = req.getDefaultLocationVisibility().trim().toUpperCase();
+            try {
+                LocationVisibility.valueOf(v);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid defaultLocationVisibility: " + req.getDefaultLocationVisibility());
+            }
+            p.setDefaultLocationVisibility(v);
+            changed = true;
+        }
+
+        // 3) exactLocationPublicStrategy
+        if (StringUtils.hasText(req.getExactLocationPublicStrategy())) {
+            String v = req.getExactLocationPublicStrategy().trim().toUpperCase();
+            try {
+                ExactLocationPublicStrategy.valueOf(v);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid exactLocationPublicStrategy: " + req.getExactLocationPublicStrategy());
+            }
+            p.setExactLocationPublicStrategy(v);
+            changed = true;
+        }
+
+        if (changed) {
+            p.setUpdatedAt(LocalDateTime.now());
+            privacySettingMapper.updateById(p);
+        }
+
+        return toResponse(p);
+    }
+
+    private UserPrivacySetting buildDefaultPrivacySetting(Long userId) {
+        LocalDateTime now = LocalDateTime.now();
+        UserPrivacySetting p = new UserPrivacySetting();
+        p.setUserId(userId);
+        p.setPostVisibilityDefault("PUBLIC");
+        p.setDefaultLocationVisibility(LocationVisibility.HIDDEN.name());
+        p.setExactLocationPublicStrategy(ExactLocationPublicStrategy.FUZZY.name());
+        p.setCreatedAt(now);
+        p.setUpdatedAt(now);
+        return p;
+    }
+
+    private PrivacySettingResponse toResponse(UserPrivacySetting p) {
+        PrivacySettingResponse r = new PrivacySettingResponse();
+        r.setUserId(p.getUserId());
+        r.setPostVisibilityDefault(p.getPostVisibilityDefault());
+        r.setDefaultLocationVisibility(p.getDefaultLocationVisibility());
+        r.setExactLocationPublicStrategy(p.getExactLocationPublicStrategy());
+        r.setCreatedAt(p.getCreatedAt());
+        r.setUpdatedAt(p.getUpdatedAt());
+        return r;
     }
 
     @Override
@@ -114,12 +200,10 @@ public class MeServiceImpl implements MeService {
             throw new IllegalArgumentException("media not found: " + mediaId);
         }
 
-        // 只能用自己的 media
         if (!userId.equals(media.getUserId())) {
             throw new IllegalArgumentException("无权使用他人的头像资源");
         }
 
-        // bizType 必须是 AVATAR
         if (!MediaBizType.AVATAR.name().equals(media.getBizType())) {
             throw new IllegalArgumentException("该 media 不是 AVATAR 类型，不能设置为头像");
         }
@@ -129,7 +213,6 @@ public class MeServiceImpl implements MeService {
             throw new IllegalArgumentException("User not found");
         }
 
-        // 用原图当头像（你也可以改成 media.getMediumUrl()）
         u.setAvatarUrl(media.getOriginUrl());
         u.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(u);

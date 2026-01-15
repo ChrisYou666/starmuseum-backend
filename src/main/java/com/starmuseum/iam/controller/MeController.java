@@ -6,8 +6,9 @@ import com.starmuseum.iam.dto.UpdatePrivacyRequest;
 import com.starmuseum.iam.dto.UpdateProfileRequest;
 import com.starmuseum.iam.service.MeService;
 import com.starmuseum.iam.vo.MeResponse;
+import com.starmuseum.iam.vo.PrivacySettingResponse;
+import com.starmuseum.common.security.CurrentUser;
 import jakarta.validation.Valid;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,22 +22,34 @@ public class MeController {
     }
 
     @GetMapping
-    public Result<MeResponse> me(@AuthenticationPrincipal Long userId) {
+    public Result<MeResponse> me() {
+        Long userId = CurrentUser.requireUserId();
         return Result.ok(meService.me(userId));
     }
 
     @PutMapping("/profile")
-    public Result<Void> updateProfile(@AuthenticationPrincipal Long userId,
-                                      @RequestBody @Valid UpdateProfileRequest req) {
+    public Result<Void> updateProfile(@RequestBody @Valid UpdateProfileRequest req) {
+        Long userId = CurrentUser.requireUserId();
         meService.updateProfile(userId, req);
         return Result.ok();
     }
 
+    /**
+     * 3.2 新增：获取隐私设置
+     */
+    @GetMapping("/privacy")
+    public Result<PrivacySettingResponse> getPrivacy() {
+        Long userId = CurrentUser.requireUserId();
+        return Result.ok(meService.getPrivacy(userId));
+    }
+
+    /**
+     * 3.2 修改：更新隐私设置，并返回更新后的结果
+     */
     @PutMapping("/privacy")
-    public Result<Void> updatePrivacy(@AuthenticationPrincipal Long userId,
-                                      @RequestBody @Valid UpdatePrivacyRequest req) {
-        meService.updatePrivacy(userId, req);
-        return Result.ok();
+    public Result<PrivacySettingResponse> updatePrivacy(@RequestBody @Valid UpdatePrivacyRequest req) {
+        Long userId = CurrentUser.requireUserId();
+        return Result.ok(meService.updatePrivacy(userId, req));
     }
 
     /**
@@ -45,8 +58,8 @@ public class MeController {
      * body: { "mediaId": 123 }
      */
     @PutMapping("/avatar")
-    public Result<Void> updateAvatar(@AuthenticationPrincipal Long userId,
-                                     @RequestBody @Valid UpdateAvatarRequest req) {
+    public Result<Void> updateAvatar(@RequestBody @Valid UpdateAvatarRequest req) {
+        Long userId = CurrentUser.requireUserId();
         meService.updateAvatar(userId, req);
         return Result.ok();
     }

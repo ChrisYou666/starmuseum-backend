@@ -8,7 +8,9 @@ import com.starmuseum.modules.media.dto.MediaUploadResponse;
 import com.starmuseum.modules.media.entity.Media;
 import com.starmuseum.modules.media.enums.MediaBizType;
 import com.starmuseum.modules.media.mapper.MediaMapper;
+import com.starmuseum.modules.media.service.ExifSanitizer;
 import com.starmuseum.modules.media.service.MediaService;
+import com.starmuseum.modules.media.service.model.ExifSanitizeResult;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,9 +28,9 @@ import java.util.*;
 
 /**
  * 说明：
- * - 这里用“本地存储”实现上传：保存到 {user.dir}/uploads/yyyy/MM/dd/
- * - thumb/medium 暂时不做缩放（直接复制一份）
- * - B 模块默认只能操作自己的 media
+ * - 本地存储：保存到 {user.dir}/uploads/yyyy/MM/dd/
+ * - 3.3：上传后必须产出 sanitized 文件（去 EXIF）并且 URL 永远指向 sanitized
+ * - thumb/medium 暂时不做缩放（直接复制 sanitized 一份）
  */
 @Service
 public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements MediaService {
@@ -37,6 +39,12 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
 
     private static final DateTimeFormatter DAY_FMT = DateTimeFormatter.ofPattern("yyyy/MM/dd");
     private static final String UPLOAD_DIR = "uploads";
+
+    private final ExifSanitizer exifSanitizer;
+
+    public MediaServiceImpl(ExifSanitizer exifSanitizer) {
+        this.exifSanitizer = exifSanitizer;
+    }
 
     @Override
     public MediaUploadResponse uploadOne(MultipartFile file, MediaBizType bizType) {
@@ -49,14 +57,14 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
 
         Long userId = currentUserId();
 
-        // 1) 保存文件到本地
-        StoredFiles stored = storeLocal(file);
+        // 1) 保存并清理 EXIF（关键：最终落盘必须是 sanitized）
+        StoredFiles stored = storeLocalAndSanitize(file);
 
-        // 2) 读基础信息
+        // 2) 基础信息
         String mimeType = file.getContentType();
         long sizeBytes = file.getSize();
 
-        // 3) 写入 media 表（关键：userId + bizType）
+        // 3) 写入 media 表
         Media media = new Media();
         media.setUserId(userId);
         media.setBizType(bizType.name());
@@ -76,6 +84,21 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
         media.setStorageKey(stored.storageKey);
         media.setCreatedAt(LocalDateTime.now());
 
+        // === 3.3 EXIF 字段写入 ===
+        ExifSanitizeResult r = stored.exifResult;
+        if (r != null) {
+            media.setExifStripped(r.isExifStripped() ? 1 : 0);
+            media.setExifHasGps(r.isExifHasGps() ? 1 : 0);
+            media.setExifHasDevice(r.isExifHasDevice() ? 1 : 0);
+            media.setExifCheckedAt(r.getCheckedAt());
+        } else {
+            // 理论上不会发生：storeLocalAndSanitize 保证 sanitize 执行
+            media.setExifStripped(1);
+            media.setExifHasGps(0);
+            media.setExifHasDevice(0);
+            media.setExifCheckedAt(LocalDateTime.now());
+        }
+
         this.save(media);
 
         // 4) 返回
@@ -90,6 +113,12 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
         resp.setWidth(media.getWidth());
         resp.setHeight(media.getHeight());
         resp.setCreatedAt(media.getCreatedAt());
+
+        // === 3.3 response 输出 ===
+        resp.setExifStripped(media.getExifStripped() != null && media.getExifStripped() == 1);
+        resp.setExifHasGps(media.getExifHasGps() != null && media.getExifHasGps() == 1);
+        resp.setExifHasDevice(media.getExifHasDevice() != null && media.getExifHasDevice() == 1);
+
         return resp;
     }
 
@@ -135,7 +164,6 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
         dto.setWidth(media.getWidth());
         dto.setHeight(media.getHeight());
         dto.setCreatedAt(media.getCreatedAt());
-
         return dto;
     }
 
@@ -202,9 +230,16 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
         String originUrl;
         String thumbUrl;
         String mediumUrl;
+
+        // 3.3：保存 EXIF 检测结果
+        ExifSanitizeResult exifResult;
     }
 
-    private StoredFiles storeLocal(MultipartFile file) {
+    /**
+     * 3.3：保存 raw 临时文件 -> sanitize 输出 origin -> 删除 raw
+     * thumb/medium 从 sanitized origin 复制
+     */
+    private StoredFiles storeLocalAndSanitize(MultipartFile file) {
         String originalName = file.getOriginalFilename();
         String ext = "";
         if (StringUtils.hasText(originalName) && originalName.contains(".")) {
@@ -214,6 +249,10 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
         String day = LocalDate.now().format(DAY_FMT); // yyyy/MM/dd
         String uuid = UUID.randomUUID().toString().replace("-", "");
 
+        // raw 临时文件名（不对外暴露）
+        String rawName = uuid + "_raw" + ext;
+
+        // sanitized 文件名（最终对外）
         String originName = uuid + ext;
         String thumbName = uuid + "_t" + ext;
         String mediumName = uuid + "_m" + ext;
@@ -227,16 +266,42 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
             throw new RuntimeException("create upload dir failed", e);
         }
 
+        Path rawPath = baseDir.resolve(rawName);
         Path originPath = baseDir.resolve(originName);
         Path thumbPath = baseDir.resolve(thumbName);
         Path mediumPath = baseDir.resolve(mediumName);
 
+        // 1) 先落盘 raw
         try {
-            Files.copy(file.getInputStream(), originPath, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(file.getInputStream(), rawPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("store raw file failed", e);
+        }
+
+        // 2) sanitize(raw -> origin) （输出天然无 EXIF）
+        ExifSanitizeResult exifResult;
+        try {
+            String outputFormat = guessFormatByExt(ext);
+            exifResult = exifSanitizer.sanitize(rawPath, originPath, outputFormat);
+        } catch (Exception e) {
+            // 合规策略：sanitize 失败就拒绝上传，并清理 raw
+            safeDelete(rawPath);
+            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+        }
+
+        // 3) 删除 raw，避免未经清理的文件落盘
+        safeDelete(rawPath);
+
+        // 4) thumb/medium 从 sanitized origin 复制（阶段3暂不缩放）
+        try {
             Files.copy(originPath, thumbPath, StandardCopyOption.REPLACE_EXISTING);
             Files.copy(originPath, mediumPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            throw new RuntimeException("store file failed", e);
+            // 失败就尽量清理，避免遗留半成品
+            safeDelete(originPath);
+            safeDelete(thumbPath);
+            safeDelete(mediumPath);
+            throw new RuntimeException("create thumb/medium failed", e);
         }
 
         String baseUrl = "http://localhost:8080/" + UPLOAD_DIR + "/" + day + "/";
@@ -246,7 +311,25 @@ public class MediaServiceImpl extends ServiceImpl<MediaMapper, Media> implements
         s.originUrl = baseUrl + originName;
         s.thumbUrl = baseUrl + thumbName;
         s.mediumUrl = baseUrl + mediumName;
+        s.exifResult = exifResult;
         return s;
+    }
+
+    private void safeDelete(Path p) {
+        try {
+            if (p != null) Files.deleteIfExists(p);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String guessFormatByExt(String ext) {
+        if (!StringUtils.hasText(ext)) return "jpg";
+        String e = ext.toLowerCase().trim();
+        if (e.startsWith(".")) e = e.substring(1);
+        if (e.equals("jpeg")) return "jpg";
+        if (e.equals("jpg") || e.equals("png")) return e;
+        // 阶段3：只允许 jpg/png 最稳
+        return e;
     }
 
     /**

@@ -1,9 +1,15 @@
 package com.starmuseum.modules.media.enums;
 
 /**
- * media.biz_type（阶段1定义：AVATAR / POST）
+ * media 业务类型
  */
 public enum MediaBizType {
+
+    POST,
     AVATAR,
-    POST
+
+    /**
+     * 举报证据图片（3.5.1）
+     */
+    REPORT_EVIDENCE
 }

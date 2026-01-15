@@ -22,6 +22,18 @@ public class UserPrivacySetting {
      */
     private String postVisibilityDefault;
 
+    /**
+     * 发帖默认位置可见性：HIDDEN / CITY / FUZZY / EXACT
+     * 默认 HIDDEN
+     */
+    private String defaultLocationVisibility;
+
+    /**
+     * 当作者选择 EXACT 时，对“他人”的展示策略：FUZZY / CITY
+     * 默认 FUZZY
+     */
+    private String exactLocationPublicStrategy;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

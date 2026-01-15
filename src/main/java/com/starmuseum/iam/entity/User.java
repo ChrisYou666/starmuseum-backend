@@ -37,4 +37,9 @@ public class User {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private LocalDateTime mutedUntil;
+    private LocalDateTime suspendedUntil;
+    private Integer banned;
+
 }

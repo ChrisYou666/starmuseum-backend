@@ -4,6 +4,18 @@ spring:
     username: starmuseum
     password: starmuseum123
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # 已有数据库：第一次 migrate 时自动写入 baseline 记录（不重建表）
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: baseline_existing_db
+    # 校验脚本一致性（企业必开）
+    validate-on-migrate: true
+    # 禁止清库（企业必做，防误操作）
+    clean-disabled: true
+
 
   servlet:
     multipart:
@@ -20,8 +32,11 @@ app:
 
 logging:
   level:
+    org.flywaydb: INFO
+    org.springframework.boot.autoconfigure.flyway: DEBUG
     root: info
     com.starmuseum: debug
+
 
 starmuseum:
   storage:

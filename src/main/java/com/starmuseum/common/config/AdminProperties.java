@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 管理员配置（阶段3：最小闭环方案）
- *
  * application-dev.yml 示例：
  * app:
  *   admin:

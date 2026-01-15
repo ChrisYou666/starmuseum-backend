@@ -7,8 +7,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * 管理员身份识别（阶段3：最小闭环）
- *
  * 说明：
  * - 当前不做复杂 RBAC，只通过配置的 userIds 判断是否为管理员。
  * - 后续阶段4可以替换成 JWT authorities / user_role 表等更企业化方案。

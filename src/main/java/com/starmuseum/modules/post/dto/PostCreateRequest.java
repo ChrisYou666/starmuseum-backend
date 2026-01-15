@@ -24,4 +24,28 @@ public class PostCreateRequest {
      * 图片 mediaId 列表（顺序即 sortNo）
      */
     private List<Long> mediaIds;
+
+    // =========================
+    // 阶段3.1：位置字段（可选）
+    // =========================
+
+    /**
+     * 纬度（可选）
+     */
+    private Double lat;
+
+    /**
+     * 经度（可选）
+     */
+    private Double lon;
+
+    /**
+     * 城市名（阶段3先由前端传）
+     */
+    private String cityName;
+
+    /**
+     * 位置可见性：HIDDEN/CITY/FUZZY/EXACT
+     */
+    private String locationVisibility;
 }
