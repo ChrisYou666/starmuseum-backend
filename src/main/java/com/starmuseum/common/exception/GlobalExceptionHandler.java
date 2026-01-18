@@ -5,6 +5,8 @@ import com.starmuseum.common.api.ResultCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -29,6 +31,37 @@ import java.util.Objects;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // -------------------------
+    // 0) BizException（业务异常）
+    // 目标：坏包校验等“可预期错误”，必须返回 4xx + 明确 message，而不是 500
+    // -------------------------
+    @ExceptionHandler(BizException.class)
+    public ResponseEntity<Result<ApiErrorResponse>> handleBizException(
+        BizException ex,
+        HttpServletRequest request
+    ) {
+        int status = normalizeHttpStatus(ex.getHttpStatus());
+
+        ApiErrorResponse body = ApiErrorResponse.of(
+            status,
+            "Business Error",
+            Objects.toString(ex.getMessage(), "请求失败"),
+            request.getRequestURI()
+        );
+        body.setTimestamp(OffsetDateTime.now().toString());
+
+        // 如果业务异常给了 5xx（理论上不常见），打印堆栈方便定位
+        if (status >= 500) {
+            log.error("BizException status>=500, uri={}", request.getRequestURI(), ex);
+        }
+
+        return ResponseEntity
+            .status(status)
+            .body(Result.fail(mapResultCode(status), body.getDetail(), body));
+    }
 
     // -------------------------
     // 1) Validation errors
@@ -233,6 +266,9 @@ public class GlobalExceptionHandler {
         Exception ex,
         HttpServletRequest request
     ) {
+        // 未知异常必须打印堆栈，否则你会遇到“返回500但控制台没信息”的困境
+        log.error("Unhandled exception, uri={}", request.getRequestURI(), ex);
+
         ApiErrorResponse body = ApiErrorResponse.of(
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
             "Internal Error",
@@ -247,12 +283,21 @@ public class GlobalExceptionHandler {
     }
 
     private ResultCode mapResultCode(HttpStatusCode statusCode) {
-        int v = statusCode.value();
+        return mapResultCode(statusCode.value());
+    }
+
+    private ResultCode mapResultCode(int v) {
         if (v == 400) return ResultCode.BAD_REQUEST;
         if (v == 401) return ResultCode.UNAUTHORIZED;
         if (v == 403) return ResultCode.FORBIDDEN;
         if (v == 404) return ResultCode.NOT_FOUND;
         if (v == 405) return ResultCode.METHOD_NOT_ALLOWED;
         return ResultCode.INTERNAL_ERROR;
+    }
+
+    private int normalizeHttpStatus(int code) {
+        // 合法区间 100-599 才当作 http status
+        if (code >= 100 && code <= 599) return code;
+        return HttpStatus.INTERNAL_SERVER_ERROR.value();
     }
 }

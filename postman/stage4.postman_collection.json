@@ -1,0 +1,958 @@
+{
+  "info": {
+    "_postman_id": "d9a7436e-9565-4016-b285-20a4ad83fd5c",
+    "name": "Starmuseum - Stage4 Backend - Phase4.0 Baseline",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Stage4 Phase4.0 baseline regression collection. Run in order. It will register a new user, login, call core APIs, and store key IDs into variables."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": "Passw0rd!123"
+    },
+    {
+      "key": "nickname",
+      "value": "stage4_user"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "postId",
+      "value": ""
+    },
+    {
+      "key": "astroBodyId",
+      "value": "1"
+    },
+    {
+      "key": "timeUtc",
+      "value": "2026-01-10T12:00:00Z"
+    },
+    {
+      "key": "lat",
+      "value": "31.2304"
+    },
+    {
+      "key": "lon",
+      "value": "121.4737"
+    },
+    {
+      "key": "commentId",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "00 Auth",
+      "item": [
+        {
+          "name": "01 Register (random email)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ts = Date.now();",
+                  "let email = pm.collectionVariables.get('email');",
+                  "if (!email || String(email).trim() === '') {",
+                  "  email = `stage4_${ts}@test.com`;",
+                  "  pm.collectionVariables.set('email', email);",
+                  "}",
+                  "let nick = pm.collectionVariables.get('nickname');",
+                  "if (!nick || String(nick).trim() === '') {",
+                  "  pm.collectionVariables.set('nickname', `stage4_${ts}`);",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/iam/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "iam",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Creates a new user for repeatable testing.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"nickname\": \"{{nickname}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "02 Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.test('tokens exist', function(){",
+                  "  pm.expect(j.data).to.be.an('object');",
+                  "  pm.expect(j.data.accessToken).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.data.refreshToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('accessToken', j.data.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', j.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/iam/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "iam",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login and store accessToken/refreshToken into collection variables.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "03 Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.collectionVariables.set('accessToken', j.data.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', j.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/iam/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "iam",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Refresh token and rotate tokens.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "04 Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.test('me has id/email', function(){",
+                  "  pm.expect(j.data.id).to.exist;",
+                  "  pm.expect(j.data.email).to.eql(pm.collectionVariables.get('email'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/iam/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "iam",
+                "me"
+              ]
+            },
+            "description": "Get current user profile (requires Authorization)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 Social Baseline",
+      "item": [
+        {
+          "name": "10 Create Post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.test('post id exists', function(){ pm.expect(j.data.id).to.exist; });",
+                  "pm.collectionVariables.set('postId', j.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post"
+              ]
+            },
+            "description": "Create a post and store postId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Stage4 Phase4.0 baseline post\",\n  \"visibility\": \"PUBLIC\",\n  \"mediaIds\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "11 Feed Page (public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.test('has records array', function(){",
+                  "  pm.expect(j.data).to.be.an('object');",
+                  "  pm.expect(j.data.records).to.be.an('array');",
+                  "});",
+                  "// If postId not set for some reason, pick the first record",
+                  "if (!pm.collectionVariables.get('postId') && j.data.records.length > 0) {",
+                  "  pm.collectionVariables.set('postId', j.data.records[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/page?page=1&size=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "page"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Feed page (requires Authorization due to security config)."
+          }
+        },
+        {
+          "name": "12 Post Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.test('detail id matches', function(){",
+                  "  pm.expect(String(j.data.id)).to.eql(String(pm.collectionVariables.get('postId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/{{postId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "{{postId}}"
+              ]
+            },
+            "description": "Post detail for stored postId."
+          }
+        },
+        {
+          "name": "13 Like Post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/{{postId}}/like",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "{{postId}}",
+                "like"
+              ]
+            },
+            "description": "Like the post."
+          }
+        },
+        {
+          "name": "14 Unlike Post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/{{postId}}/like",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "{{postId}}",
+                "like"
+              ]
+            },
+            "description": "Unlike the post."
+          }
+        },
+        {
+          "name": "15 Create Comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.test('comment id exists', function(){ pm.expect(j.data.id).to.exist; });",
+                  "pm.collectionVariables.set('commentId', j.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/{{postId}}/comment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "{{postId}}",
+                "comment"
+              ]
+            },
+            "description": "Create comment and store commentId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Stage4 baseline comment\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "16 Comment Page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });",
+                  "pm.test('has records array', function(){ pm.expect(j.data.records).to.be.an('array'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/{{postId}}/comment/page?page=1&size=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "{{postId}}",
+                "comment",
+                "page"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "List comments for post."
+          }
+        },
+        {
+          "name": "17 Delete My Comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('result.code == 0', function(){ pm.expect(j.code).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/post/comment/{{commentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "post",
+                "comment",
+                "{{commentId}}"
+              ]
+            },
+            "description": "Soft delete my comment."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Astro Baseline",
+      "item": [
+        {
+          "name": "20 Catalog Version Active",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('has catalog code', function(){ pm.expect(j.code).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/astro/catalog/version/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "astro",
+                "catalog",
+                "version",
+                "active"
+              ]
+            },
+            "description": "Get active catalog version (plain JSON, not wrapped)."
+          }
+        },
+        {
+          "name": "21 Astro Search (q=sirius)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('is array', function(){ pm.expect(j).to.be.an('array'); });",
+                  "if (j.length > 0 && j[0].id) { pm.collectionVariables.set('astroBodyId', j[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/astro/search?q=sirius&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "astro",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "sirius"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Search celestial bodies (plain JSON list). Stores first id into astroBodyId."
+          }
+        },
+        {
+          "name": "22 Astro Body Detail (by astroBodyId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "// endpoint may return null if id not found, treat as fail",
+                  "pm.test('body detail not null', function(){ pm.expect(j).to.not.eql(null); });",
+                  "pm.test('has alt/az fields', function(){",
+                  "  pm.expect(j).to.be.an('object');",
+                  "  pm.expect(j).to.have.property('altitudeDeg');",
+                  "  pm.expect(j).to.have.property('azimuthDeg');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/astro/body/{{astroBodyId}}?time={{timeUtc}}&lat={{lat}}&lon={{lon}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "astro",
+                "body",
+                "{{astroBodyId}}"
+              ],
+              "query": [
+                {
+                  "key": "time",
+                  "value": "{{timeUtc}}"
+                },
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lon",
+                  "value": "{{lon}}"
+                }
+              ]
+            },
+            "description": "Get body detail with time/lat/lon (plain JSON)."
+          }
+        },
+        {
+          "name": "23 Sky Summary (limit=30, visibleOnly=true, sort=mag)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('has meta/items', function(){",
+                  "  pm.expect(j).to.be.an('object');",
+                  "  pm.expect(j.meta).to.be.an('object');",
+                  "  pm.expect(j.items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/astro/sky/summary?time={{timeUtc}}&lat={{lat}}&lon={{lon}}&limit=30&visibleOnly=true&sort=mag",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "astro",
+                "sky",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "time",
+                  "value": "{{timeUtc}}"
+                },
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lon",
+                  "value": "{{lon}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "30"
+                },
+                {
+                  "key": "visibleOnly",
+                  "value": "true"
+                },
+                {
+                  "key": "sort",
+                  "value": "mag"
+                }
+              ]
+            },
+            "description": "Sky summary (plain JSON)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "99 Diagnostics",
+      "item": [
+        {
+          "name": "91 Actuator Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('status UP', function(){ pm.expect(j.status).to.eql('UP'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Actuator health is permitAll in SecurityConfig.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "90 Dev Admin Check (userId=1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function(){ pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('has isAdmin', function(){ pm.expect(j).to.have.property('isAdmin'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dev/admin-check?userId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dev",
+                "admin-check"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Dev profile only. Checks AdminGuard. Requires Authorization because /api/** authenticated."
+          }
+        }
+      ]
+    }
+  ]
+}

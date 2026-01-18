@@ -1,8 +1,11 @@
 package com.starmuseum.common.exception;
 
+import lombok.Data;
+
 /**
  * 业务异常（你后续可以在 Service 里用 throw new BizException(...)）
  */
+@Data
 public class BizException extends RuntimeException {
 
     private final int httpStatus;

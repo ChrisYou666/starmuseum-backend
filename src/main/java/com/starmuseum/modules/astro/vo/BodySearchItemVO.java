@@ -15,4 +15,12 @@ public class BodySearchItemVO {
     private String nameId;
 
     private Double mag;
+
+    private String constellation;
+    private String wikiUrl;
+
+    /**
+     * Phase 5D：扩展字段 JSON（可选）
+     */
+    private String extraJson;
 }

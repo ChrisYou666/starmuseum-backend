@@ -1,34 +1,60 @@
 spring:
+  application:
+    name: starmuseum-backend
+
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: 123456
+      database: 0
+
   datasource:
-    url: jdbc:mysql://localhost:3306/starmuseum?useUnicode=true&...=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/starmuseum?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: starmuseum
     password: starmuseum123
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   flyway:
     enabled: true
     locations: classpath:db/migration
-    # 已有数据库：第一次 migrate 时自动写入 baseline 记录（不重建表）
     baseline-on-migrate: true
     baseline-version: 1
     baseline-description: baseline_existing_db
-    # 校验脚本一致性（企业必开）
     validate-on-migrate: true
-    # 禁止清库（企业必做，防误操作）
     clean-disabled: true
-
 
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 20MB
 
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,threaddump,loggers
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
 
 app:
   cors:
     allowed-origins:
       - "http://localhost:5173"
   admin:
-    user-ids: [1]
+    user-ids: [2]
 
 logging:
   level:
@@ -37,23 +63,47 @@ logging:
     root: info
     com.starmuseum: debug
 
-
 starmuseum:
+  security:
+    jwt:
+      issuer: "starmuseum"
+      secret: "PLEASE_CHANGE_ME_TO_A_LONG_RANDOM_SECRET_64+CHARS"
+      access-token-ttl-minutes: 300
+    refresh:
+      ttl-days: 30
+      pepper: "PLEASE_CHANGE_ME_REFRESH_PEPPER_TOO"
+
   storage:
     local:
-      # 这里是你电脑上真实存在的目录（没有会自动创建）
       upload-dir: D:/data/starmuseum/uploads
-    # 用于拼接返回的可访问 URL（浏览器打开用）
     public-base-url: http://localhost:8080
     image:
-      # thumb：Feed 列表用
       thumb-max-side: 320
-      # medium：详情展示用
       medium-max-side: 1280
-      # 允许的 mime（可按需增删）
       allowed-mime-types:
         - image/jpeg
         - image/png
         - image/webp
-      # 10MB（兜底校验）
       max-file-size-bytes: 10485760
+
+# ✅ CatalogProperties 用：@ConfigurationProperties(prefix="catalog")
+catalog:
+  storage-dir: D:/data/starmuseum/catalog_storage
+  temp-dir: D:/data/starmuseum/tmp/catalog-import
+
+  # ✅关键：保持这个名字（别用 public-path）
+  resource-base-url: /catalog
+
+  # 可选：如果你接口要返回绝对 URL，就保留；不用也行
+  base-url: http://localhost:8080
+
+  textures:
+    resolutions:
+      - 2k
+      - 4k
+      - 8k
+    extensions:
+      - webp
+      - jpg
+      - jpeg
+      - png

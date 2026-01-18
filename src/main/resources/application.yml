@@ -3,12 +3,6 @@ spring:
     name: starmuseum-backend
   profiles:
     active: dev
-  data:
-    redis:
-      host: 127.0.0.1
-      port: 6379
-      password: 123456
-      database: 0
 
 server:
   port: 8080
@@ -22,16 +16,3 @@ management:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-
-
-starmuseum:
-  security:
-    jwt:
-      issuer: "starmuseum"
-      # ⚠️ 必须改成你自己的长随机串（至少 64 位）
-      secret: "PLEASE_CHANGE_ME_TO_A_LONG_RANDOM_SECRET_64+CHARS"
-      access-token-ttl-minutes: 300
-    refresh:
-      ttl-days: 30
-      # ⚠️ refresh token hash 的 pepper，必须改成随机串
-      pepper: "PLEASE_CHANGE_ME_REFRESH_PEPPER_TOO"

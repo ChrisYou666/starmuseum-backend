@@ -39,6 +39,7 @@ public class SecurityConfig {
 
         http.authorizeHttpRequests(auth -> auth
             // 认证接口放行
+            .requestMatchers("/actuator/health", "/actuator/info", "/actuator/metrics/**").permitAll()
             .requestMatchers("/api/iam/auth/register").permitAll()
             .requestMatchers("/api/iam/auth/login").permitAll()
             .requestMatchers("/api/iam/auth/refresh").permitAll()

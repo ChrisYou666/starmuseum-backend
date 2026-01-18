@@ -24,6 +24,12 @@ public class BodyDetailVO {
     private String constellation;
     private String wikiUrl;
 
+    /**
+     * Phase 5D：扩展字段 JSON（角直径、尺寸、类型等）
+     * - 前端可直接 JSON.parse(extraJson)
+     */
+    private String extraJson;
+
     private Double altitudeDeg;
     private Double azimuthDeg;
     private Boolean visible;

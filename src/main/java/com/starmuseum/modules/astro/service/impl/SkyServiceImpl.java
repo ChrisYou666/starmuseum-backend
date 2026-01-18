@@ -32,7 +32,6 @@ public class SkyServiceImpl implements SkyService {
 
         List<StarPositionVO> out = new ArrayList<>(stars.size());
         for (CelestialBody s : stars) {
-            // 数据保护：阶段2我们只算有 RA/Dec 的星
             if (s.getRaDeg() == null || s.getDecDeg() == null) {
                 continue;
             }
@@ -64,13 +63,11 @@ public class SkyServiceImpl implements SkyService {
                                       double latDeg,
                                       double lonDeg) {
 
-        // 这里直接用 CelestialBodyService.getById（你接口里有）
         CelestialBody b = celestialBodyService.getById(id);
         if (b == null) {
             return null;
         }
 
-        // 防止查到别的 catalog 版本的数据（可选但建议加）
         if (b.getCatalogVersionCode() != null && !b.getCatalogVersionCode().equals(catalogVersionCode)) {
             return null;
         }
@@ -93,7 +90,9 @@ public class SkyServiceImpl implements SkyService {
         vo.setConstellation(b.getConstellation());
         vo.setWikiUrl(b.getWikiUrl());
 
-        // 如果缺 RA/Dec，就不算高度方位
+        // Phase 5D：扩展字段输出
+        vo.setExtraJson(b.getExtraJson());
+
         if (b.getRaDeg() != null && b.getDecDeg() != null) {
             AstronomyCalculator.AltAz altAz = AstronomyCalculator.equatorialToHorizontal(
                 timeUtc, latDeg, lonDeg, b.getRaDeg(), b.getDecDeg()
